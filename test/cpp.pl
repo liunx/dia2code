@@ -33,7 +33,7 @@ my %param1 = (
 my %param2 = (
 		name => "b",
 		type => "int",
-		direct => "in",
+		direct => "out",
 		value => "100"
 );
 my @params = ( \%param1, \%param2 );	
@@ -42,9 +42,24 @@ my %method1 = (
 		name => "Hello",
 		type => "void",
 		params => \@params,
+		visibility => "public",
 		comment => "This is a test method"
 );
-my @methods = ( \%method1 );
+my %method2 = (
+		name => "Hello2",
+		type => "void",
+		params => \@params,
+		visibility => "private",
+		comment => "This is a test method"
+);
+my %method3 = (
+		name => "Hello3",
+		type => "void",
+		params => \@params,
+		visibility => "protected",
+		comment => "This is a test method"
+);
+my @methods = ( \%method1, \%method2, \%method3 );
 
 my %class = (
 		name => "Object",
@@ -54,8 +69,6 @@ my %class = (
 );
 
 ### the main ###
-# At last, we should write the class into cpp head file
-open FILE, "> Object.h" or die $!;
 my %cpp_class;
 # We need to fully read the class hash, and get all of it's 
 # contents like class name, attributes, methods, visibilities,
@@ -82,7 +95,7 @@ foreach my $class_object ( keys %class )
 	}
 	elsif ( $class_object eq "methods" )
 	{
-		
+		$cpp_class{methods} = get_methods( $ref->{$class_object} );			
 	}
 	else
 	{
@@ -91,12 +104,21 @@ foreach my $class_object ( keys %class )
 	print $class_object, "\n";
 } 
 
+# first, write the class header file
+open FILE, "> $class{name}.h" or die $!;
+
+print FILE "#ifndef __$class{name}_H\n";
+print FILE "#define __$class{name}_H\n";
 print FILE @{$cpp_class{comments}};
 print FILE @{$cpp_class{name}};
 print FILE @{$cpp_class{attributes}};
+print FILE @{$cpp_class{methods}};
 
 # At last, close the class 
 print FILE "};\n";
+print FILE "#endif\n";
+# Second, write the class cpp file
+# open FILE, "> $class{name}.cpp" or die $!;
 
 ###################################################################
 ### Subroutines ###
@@ -178,12 +200,73 @@ sub get_attributes {
 
 ### get parameters
 sub get_params {
+	my $params;
 	my $ref = shift;
+	# we use a variable to show loop count
+	my $loop = 0;
+	for my $i ( @$ref )
+	{
+		if ( $loop != 0 )
+		{
+			$params .= ", "
+		}
+		
+		if ( $i->{direct} eq "in" )
+		{
+			$params .= "const $i->{type} $i->{name}";			
+		}
+		elsif ( $i->{direct} eq "out" )
+		{
+			$params .= "$i->{type}& $i->{name}";						
+		}
+		elsif ( $i->{direct} eq "inout" )
+		{
+			$params .= "$i->{type}& $i->{name}";					
+		}
+		else
+		{
+			die "Wrong direct!\n";
+		}
+		$loop++;
+	}
+	return $params;
 }
 
 ### get methods
 sub get_methods {
 	my $ref = shift;
-	my @buf;
+	my ( @methods, @public, @private, @protected );
+	push @methods, "\t/* methods */\n";
+	push @public, "\tpublic:\n";
+	push @private, "\tprivate:\n";
+	push @protected, "\tprotected:\n";
+	for my $i ( @$ref )
+	{
+		my $params;
+		if ( $i->{visibility} eq "public" )
+		{
+			$params = get_params( $i->{params} );
+			push @public, "\t$i->{type} $i->{name}($params) ;\t//$i->{comment}\n";	
+		}
+		elsif ( $i->{visibility} eq "private" )
+		{
+			$params = get_params( $i->{params} );
+			push @private, "\t$i->{type} $i->{name}($params) ;\t//$i->{comment}\n";	
+		}
+		elsif ( $i->{visibility} eq "protected" )
+		{
+			$params = get_params( $i->{params} );
+			push @protected, "\t$i->{type} $i->{name}($params) ;\t//$i->{comment}\n";	
+		}
+		else
+		{
+			die "Wrong attribute!\n";
+		}
+	}
+	push @methods, @public;
+	push @methods, @private;
+	push @methods, @protected;
+	
+	return \@methods;
 	
 }
