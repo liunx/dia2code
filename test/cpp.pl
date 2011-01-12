@@ -175,3 +175,15 @@ sub get_attributes {
 	
 	return \@attributes;
 }
+
+### get parameters
+sub get_params {
+	my $ref = shift;
+}
+
+### get methods
+sub get_methods {
+	my $ref = shift;
+	my @buf;
+	
+}
